@@ -1,6 +1,7 @@
 # main.py
 import argparse
 import yaml
+import os
 from pathlib import Path
 
 from scripts.run_colmap import automatic_pipeline
@@ -36,6 +37,10 @@ def main():
     mesh_output = result_dir / "meshes"
     step_output = mesh_output / "model.step"
     data_is_video = args.data_is_video
+
+    if args.use_gpu:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+        print("[INFO] CUDA enabled for feature extraction / matching")
 
     if data_is_video:
         video_file = find_video_in_folder(video_dir)
