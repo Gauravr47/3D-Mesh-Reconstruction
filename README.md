@@ -70,15 +70,15 @@ The pipeline supports both **unordered image collections** and **video inputs**,
 
 ## 📁 Folder Structure (Suggested)
 project-root/
-├── cpp/ #C++ files
-├── data/ # Input videos, images, COLMAP workspace
-├── logs/ # Metrics and debug outputs
-├── nerf/ # Trained NeRF checkpoints
-├── scripts/ # Python scripts for each stage
-├── results/ # Final outputs
-├── notebooks/ #jupytor notebooks 
-├── vis/ #visualization 
-└── README.md # You are here
+ ├── cpp/ #C++ files  
+ ├── data/ # Input videos, images, COLMAP workspace  
+ ├── logs/ # Metrics and debug outputs  
+ ├── nerf/ # Trained NeRF checkpoints  
+ ├── scripts/ # Python scripts for each stage  
+ ├── results/ # Final outputs  
+ ├── notebooks/ #jupytor notebooks   
+ ├── vis/ #visualization  
+ └── README.md # You are here  
 
 ## 📈 Example Use Cases
 
