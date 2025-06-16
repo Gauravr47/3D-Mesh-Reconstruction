@@ -1,0 +1,10 @@
+dataset_name: south-building         # Change this to switch datasets
+data_is_video: false
+
+# These will be resolved dynamically in main.py based on dataset_name
+base_data_dir: data
+base_results_dir: results
+
+use_gpu: true
+run_nerf: false
+
