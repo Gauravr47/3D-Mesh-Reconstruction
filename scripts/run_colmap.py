@@ -1,6 +1,8 @@
 import os
 import shutil
 import subprocess
+from scripts.error import COLMAPError
+from scripts.logger import logger
 
 def find_colmap():
     colmap = shutil.which("colmap")
@@ -12,8 +14,9 @@ def find_colmap():
         return env_path
 
     guesses = [
-        os.path.expanduser("~/vcpkg/installed/x64-linux/tools/colmap/colmap"),
-        os.path.expanduser("~/vcpkg/installed/x64-windows/tools/colmap/colmap.exe"),
+        os.path.expanduser("~\\vcpkg\\installed\\x64-linux\\tools\\colmap\\colmap"),
+        os.path.expanduser("~\\vcpkg\\installed\\x64-windows\\tools\\colmap\\colmap.exe"),
+        os.path.expanduser("C:\\vcpkg\\installed\\x64-windows\\tools\\colmap\\colmap.exe"),
     ]
     for path in guesses:
         if os.path.isfile(path):
@@ -23,16 +26,41 @@ def find_colmap():
 
 def run_colmap(command, args):
     """Run COLMAP with the given command and arguments."""
-    colmap_bin = find_colmap()
+    try:
+        colmap_bin = find_colmap()
+    except FileNotFoundError as e:
+        raise COLMAPError(e)
+    
     cmd = [colmap_bin, command] + args
-    print("Running:", " ".join(cmd))
-    subprocess.run(cmd, check=True)
+    logger.info(f"Running: {' '.join(cmd)}")
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"COLMAP command failed with exit code {e.returncode}")
+        raise COLMAPError(str(e)) from e
 
 def automatic_pipeline(image_path, output_path):
-    """Run full SfM+MVS reconstruction."""
-    run_colmap("automatic_reconstructor", [
-        "--image_path", image_path,
-        "--workspace_path", output_path,
-        "--workspace_format", "COLMAP",
-        "--dense", "1"
-    ])
+    try:
+        """Run full SfM+MVS reconstruction."""
+        run_colmap("automatic_reconstructor", [
+            "--image_path", image_path,
+            "--workspace_path", output_path,
+            "--dense", "1", "--use_gpu","true", 
+            "--num_threads", "-1",
+            "gpu_index", "0,1"
+        ])
+    except COLMAPError as e:
+        
+        raise COLMAPError(e)
+    
+def exhaustive_matcher(image_path, output_path):
+    try:
+        """Exhaustive matching."""
+        run_colmap("exhaustive_matcher", [
+            "--image_path", image_path,
+            "--workspace_path", output_path,
+            "--dense", "1", "--use_gpu","1", "--num_threads","-1"
+        ])
+    except COLMAPError as e:
+        
+        raise COLMAPError(e)

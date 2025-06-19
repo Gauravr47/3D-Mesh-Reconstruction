@@ -2,56 +2,73 @@
 import argparse
 import yaml
 import os
+import torch
+
 from pathlib import Path
 
 from scripts.run_colmap import automatic_pipeline
 from scripts.convert_vid_to_img import extract_frames, find_video_in_folder
+from scripts.error import PipelineError, COLMAPError, Open3DError
+from scripts.logger import logger
+from scripts.config import load_config, get_config
 
-def load_config(config_path="configs/config.yaml"):
-    with open(config_path, 'r') as f:
-        return yaml.safe_load(f)
-
-def parse_args(defaults):
+def parse_args(defaults): #function to parse CLI parameters
     parser = argparse.ArgumentParser(description="3D Mesh Reconstruction Pipeline")
 
-    parser.add_argument('--config', type=str, default='configs/config.yaml')
-    parser.add_argument('--dataset_name', type=str, default=defaults['dataset_name'])
-    parser.add_argument('--base_data_dir', type=str, default=defaults['base_data_dir'])
-    parser.add_argument('--base_results_dir', type=str, default=defaults['base_results_dir'])
-    parser.add_argument('--use_gpu', action='store_true' if defaults['use_gpu'] else 'store_false')
-    parser.add_argument('--run_nerf', action='store_true' if defaults['run_nerf'] else 'store_false')
+    parser.add_argument('--config_path', type=str, default='configs')
+    parser.add_argument('--config_name', type=str, default='config.yaml')
 
+    #override variables
+    parser.add_argument('--dataset_name', type=str, default=None)
+    parser.add_argument('--base_data_dir', type=str, default=None)
+    parser.add_argument('--base_results_dir', type=str, default=None)
+    parser.add_argument('--run_nerf', action='store_true', help="Run NeRF for creating a more accurate mesh")
+    parser.add_argument('--data_is_video', action='store_false',help="Set true if dataet is a video, image frames will be automatically extracted", default=None)
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--use_gpu', dest='use_gpu', action='store_true', help="Force GPU usage if available")
+    group.add_argument('--no_gpu', dest='use_gpu', action='store_false', help="Force CPU even if GPU is available")
+    parser.set_defaults(use_gpu=None)
     return parser.parse_args()
 
 def main():
-    cfg = load_config()
-    args = parse_args(cfg)
-
-    dataset = args.dataset_name
-    data_dir = Path(args.base_data_dir) / dataset
-    result_dir = Path(args.base_results_dir) / dataset
-
-    image_dir = data_dir / "images"
-    video_dir = data_dir / "video"
-    colmap_workspace = data_dir 
-    mesh_output = result_dir / "meshes"
-    step_output = mesh_output / "model.step"
-    data_is_video = args.data_is_video
-
-    if args.use_gpu:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-        print("[INFO] CUDA enabled for feature extraction / matching")
-
-    if data_is_video:
-        video_file = find_video_in_folder(video_dir)
-        if not video_file:
-            print(f"[ERROR] No valid input video dataset found")
-        extract_frames(video_file, image_dir, 2)
+    logger.info("Starting pipeline")
     
-    mesh_output.mkdir(parents=True, exist_ok=True)
+    args = parse_args(None)
 
-    print(f"[INFO] Running pipeline on dataset: {dataset}")
-    automatic_pipeline(str(image_dir), str(colmap_workspace))
+    #load config and realted parameters
+    load_config(args.config_path, args.config_name)
+    cfg = get_config()
+    
+    if cfg.use_gpu:
+        if torch.cuda.is_available():
+            num_cuda_devices = torch.cuda.device_count()
+            for i in range(num_cuda_devices):
+                device_name = torch.cuda.get_device_name(i)
+                device_properties = torch.cuda.get_device_properties(i)
+                logger.info(f"Device Index: {i}")
+                logger.info(f"Device Name: {device_name}")
+                logger.info(f"Total Memory: {device_properties.total_memory / (1024**3):.2f} GB")
+                logger.info(f"Compute Capability: {device_properties.major}.{device_properties.minor}")
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+        logger.info(" CUDA enabled for feature extraction / matching")
+
+    try:
+        if cfg.data_is_video:
+            video_file = find_video_in_folder(cfg.video_dir)
+            if not video_file:
+                raise PipelineError(" No valid input video dataset found")
+            extract_frames(video_file, cfg.image_dir, 2)
+    except PipelineError as e:
+        logger.error(" No valid input video dataset found")
+    
+    Path(cfg.mesh_dir).mkdir(parents=True, exist_ok=True)
+
+    try:
+        logger.info(f" Running pipeline on dataset: {cfg.dataset_name}")
+        automatic_pipeline(str(cfg.image_dir), str(cfg.data_dir))
+    except COLMAPError as e:
+        logger.error(f"COLMAP failed : {e}")
 
 if __name__ == "__main__":
     main()

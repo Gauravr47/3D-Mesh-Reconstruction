@@ -1,13 +1,15 @@
 import cv2
 import os
 
+from scripts.error import PipelineError
+
 def extract_frames(video_file, output_dir, frame_rate = 2):
     cap = cv2.VideoCapture(video_file)
     
     frame_count = 0
     
     # Create an output folder with a name corresponding to the video
-    if not os.path(output_dir).exists():
+    if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
     
     while True:
@@ -28,6 +30,9 @@ def extract_frames(video_file, output_dir, frame_rate = 2):
     cv2.destroyAllWindows()
 
 def find_video_in_folder(folder_path):
+    if not os.path.exists(folder_path):
+        raise PipelineError("No such video path exists")
+    
     # Supported video file extensions
     video_extensions = ('.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv')
 
@@ -40,4 +45,4 @@ def find_video_in_folder(folder_path):
                 return filename
             cap.release()
     
-    return None  # No v
+    return None  # No 
