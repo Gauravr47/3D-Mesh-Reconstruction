@@ -1,5 +1,5 @@
 dataset_name: south-building         # Change this to switch datasets
-data_is_video: false
+data_type: individual  # choices: individual, video, internet
 
 # These will be resolved dynamically in main.py based on dataset_name
 base_data_dir: data
@@ -8,3 +8,8 @@ base_results_dir: results
 use_gpu: true
 run_nerf: true
 
+automatic_reconstructor_options:
+  dense: true
+  use_gpu: true
+  num_threads: 4
+  gpu_index: [0]

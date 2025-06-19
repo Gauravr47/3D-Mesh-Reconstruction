@@ -6,11 +6,13 @@ import torch
 
 from pathlib import Path
 
-from scripts.run_colmap import automatic_pipeline
+from scripts.colmap_options import ColmapCommand
+from scripts.run_colmap import run_colmap_pipeline
 from scripts.convert_vid_to_img import extract_frames, find_video_in_folder
 from scripts.error import PipelineError, COLMAPError, Open3DError
 from scripts.logger import logger
 from scripts.config import load_config, get_config
+
 
 def parse_args(defaults): #function to parse CLI parameters
     parser = argparse.ArgumentParser(description="3D Mesh Reconstruction Pipeline")
@@ -23,7 +25,7 @@ def parse_args(defaults): #function to parse CLI parameters
     parser.add_argument('--base_data_dir', type=str, default=None)
     parser.add_argument('--base_results_dir', type=str, default=None)
     parser.add_argument('--run_nerf', action='store_true', help="Run NeRF for creating a more accurate mesh")
-    parser.add_argument('--data_is_video', action='store_false',help="Set true if dataet is a video, image frames will be automatically extracted", default=None)
+    parser.add_argument('--data_type', type=str,help="# choices: individual, video, internet", default=None)
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--use_gpu', dest='use_gpu', action='store_true', help="Force GPU usage if available")
@@ -54,7 +56,7 @@ def main():
         logger.info(" CUDA enabled for feature extraction / matching")
 
     try:
-        if cfg.data_is_video:
+        if cfg.data_type == "video":
             video_file = find_video_in_folder(cfg.video_dir)
             if not video_file:
                 raise PipelineError(" No valid input video dataset found")
@@ -66,7 +68,7 @@ def main():
 
     try:
         logger.info(f" Running pipeline on dataset: {cfg.dataset_name}")
-        automatic_pipeline(str(cfg.image_dir), str(cfg.data_dir))
+        run_colmap_pipeline(ColmapCommand.AUTOMATIC_RECONSTRUCTOR, str(cfg.image_dir), str(cfg.data_dir), cfg.automatic_reconstructor_options)
     except COLMAPError as e:
         logger.error(f"COLMAP failed : {e}")
 

@@ -3,6 +3,8 @@ import shutil
 import subprocess
 from scripts.error import COLMAPError
 from scripts.logger import logger
+from scripts.config import get_config
+from scripts.colmap_options import ColmapCommand, AutomaticReconstructorOptions, FeatureExtractorOptions, ExhaustiveMatcherOptions
 
 def find_colmap():
     colmap = shutil.which("colmap")
@@ -24,7 +26,7 @@ def find_colmap():
 
     raise FileNotFoundError("COLMAP binary not found. Set COLMAP_PATH or add to system PATH.")
 
-def run_colmap(command, args):
+def run_colmap(command, args): #General command to colmap controllers via python subprocess. All inputs are strgit status
     """Run COLMAP with the given command and arguments."""
     try:
         colmap_bin = find_colmap()
@@ -39,28 +41,30 @@ def run_colmap(command, args):
         logger.error(f"COLMAP command failed with exit code {e.returncode}")
         raise COLMAPError(str(e)) from e
 
-def automatic_pipeline(image_path, output_path):
-    try:
-        """Run full SfM+MVS reconstruction."""
-        run_colmap("automatic_reconstructor", [
-            "--image_path", image_path,
-            "--workspace_path", output_path,
-            "--dense", "1", "--use_gpu","true", 
-            "--num_threads", "-1",
-            "gpu_index", "0,1"
-        ])
-    except COLMAPError as e:
-        
-        raise COLMAPError(e)
+def get_colmap_options_class(command: ColmapCommand):
+    return {
+        ColmapCommand.AUTOMATIC_RECONSTRUCTOR: AutomaticReconstructorOptions,
+        ColmapCommand.FEATURE_EXTRACTOR: FeatureExtractorOptions,
+        ColmapCommand.MATCHER: ExhaustiveMatcherOptions,
+        # Add more as needed
+    }[command]
     
-def exhaustive_matcher(image_path, output_path):
+def run_colmap_pipeline(command: ColmapCommand, image_path, output_path, override_options: dict = None): #Command to run any colmap CLI function in COLMAP
     try:
-        """Exhaustive matching."""
-        run_colmap("exhaustive_matcher", [
-            "--image_path", image_path,
-            "--workspace_path", output_path,
-            "--dense", "1", "--use_gpu","1", "--num_threads","-1"
-        ])
-    except COLMAPError as e:
+        """Make sure all the options are correct based on command"""
+        #get config
+        cfg = get_config()
+        options = get_colmap_options_class(command)(cfg.image_dir, cfg.data_dir)
         
+        #Override options if any passed through config yaml
+        if override_options:
+            for k, v in override_options.items():
+                if hasattr(options, k):
+                    setattr(options, k, v)
+
+        run_colmap(command.value, options.to_cli_args())
+    except COLMAPError as e:   
         raise COLMAPError(e)
+
+
+    

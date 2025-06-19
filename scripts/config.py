@@ -11,7 +11,7 @@ class Config:
         self.batch_size = data.get('batch_size', 8)
         self.threshold = data.get('threshold', 0.1)
         self.dataset_name = data.get('dataset_name')         # Change this to switch datasets
-        self.data_is_video = data.get('data_is_video', 'false')
+        self.data_type = data.get('data_type', "individual")
         self.base_data_dir = data.get('base_data_dir', 'data')
         self.base_results_dir = data.get('base_results_dir' , 'results')
         self.use_nerf = data.get('run_nerf', 'true')
@@ -21,7 +21,7 @@ class Config:
         self.image_dir = os.path.join(self.data_dir, "images")
         self.video_dir = os.path.join(self.data_dir,  "video")
         self.mesh_dir = os.path.join(self.results_dir, "meshes")
-        
+        self.automatic_reconstructor_options = data.get('automatic_reconstructor_options', {})
     def _resolve_gpu(self, val): #resolve the gpu computation based on availability 
         if isinstance(val, str):
             val = val.lower()
