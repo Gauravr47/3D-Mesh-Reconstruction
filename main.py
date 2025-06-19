@@ -1,13 +1,12 @@
 # main.py
 import argparse
-import yaml
 import os
 import torch
 
 from pathlib import Path
 
 from scripts.colmap_options import ColmapCommand
-from scripts.run_colmap import run_colmap_pipeline
+from scripts.run_colmap import run_colmap_impl
 from scripts.convert_vid_to_img import extract_frames, find_video_in_folder
 from scripts.error import PipelineError, COLMAPError, Open3DError
 from scripts.logger import logger
@@ -27,6 +26,7 @@ def parse_args(defaults): #function to parse CLI parameters
     parser.add_argument('--run_nerf', action='store_true', help="Run NeRF for creating a more accurate mesh")
     parser.add_argument('--data_type', type=str,help="# choices: individual, video, internet", default=None)
 
+    #group
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--use_gpu', dest='use_gpu', action='store_true', help="Force GPU usage if available")
     group.add_argument('--no_gpu', dest='use_gpu', action='store_false', help="Force CPU even if GPU is available")
@@ -68,7 +68,7 @@ def main():
 
     try:
         logger.info(f" Running pipeline on dataset: {cfg.dataset_name}")
-        run_colmap_pipeline(ColmapCommand.AUTOMATIC_RECONSTRUCTOR, str(cfg.image_dir), str(cfg.data_dir), cfg.automatic_reconstructor_options)
+        run_colmap_impl(ColmapCommand.AUTOMATIC_RECONSTRUCTOR)
     except COLMAPError as e:
         logger.error(f"COLMAP failed : {e}")
 

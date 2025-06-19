@@ -22,6 +22,9 @@ class Config:
         self.video_dir = os.path.join(self.data_dir,  "video")
         self.mesh_dir = os.path.join(self.results_dir, "meshes")
         self.automatic_reconstructor_options = data.get('automatic_reconstructor_options', {})
+        self.feature_extractor_options = data.get('feature_extractor_options', {})
+        self.exhaustive_matcher_options = data.get('exhaustive_matcher_options', {})
+    
     def _resolve_gpu(self, val): #resolve the gpu computation based on availability 
         if isinstance(val, str):
             val = val.lower()

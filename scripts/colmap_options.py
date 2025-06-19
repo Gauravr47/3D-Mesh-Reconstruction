@@ -34,8 +34,6 @@ class MesherType(str, Enum):
 
 @dataclass
 class ColmapOptions: #base colmap option class to be inherited by other option data classes
-    image_path: str = ""
-    workspace_path: str = ""
 
     def to_cli_args(self) -> List[str]: #return a list of args by iterating the class
         args = []
@@ -79,6 +77,7 @@ class ColmapOptions: #base colmap option class to be inherited by other option d
 class AutomaticReconstructorOptions(ColmapOptions):
     project_path: Optional[str] = None
     workspace_path: Optional[str] = None
+    output_path: Optional[str] = None
     image_path: Optional[str] = None
     mask_path: Optional[str] = None
     vocab_tree_path: Optional[str] = None

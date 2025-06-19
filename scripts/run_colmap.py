@@ -48,15 +48,29 @@ def get_colmap_options_class(command: ColmapCommand):
         ColmapCommand.MATCHER: ExhaustiveMatcherOptions,
         # Add more as needed
     }[command]
-    
-def run_colmap_pipeline(command: ColmapCommand, image_path, output_path, override_options: dict = None): #Command to run any colmap CLI function in COLMAP
+
+def get_colmap_override_dict(command: ColmapCommand):
+    cfg = get_config()
+    return {
+        ColmapCommand.AUTOMATIC_RECONSTRUCTOR: cfg.automatic_reconstructor_options,
+        ColmapCommand.FEATURE_EXTRACTOR: cfg.feature_extractor_options,
+        ColmapCommand.MATCHER: cfg.exhaustive_matcher_options,
+        # Add more as needed
+    }[command]
+
+def run_colmap_impl(command: ColmapCommand): #Command to run any colmap CLI function in COLMAP
     try:
         """Make sure all the options are correct based on command"""
         #get config
         cfg = get_config()
-        options = get_colmap_options_class(command)(cfg.image_dir, cfg.data_dir)
-        
+        options = get_colmap_options_class(command)()
+
+        override_options = get_colmap_override_dict(command)
         #Override options if any passed through config yaml
+        override_options = override_options |{
+            'image_path': cfg.image_dir,
+            'workspace_path': cfg.results_dir
+        }
         if override_options:
             for k, v in override_options.items():
                 if hasattr(options, k):
