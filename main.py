@@ -68,7 +68,7 @@ def main():
 
     try:
         logger.info(f" Running pipeline on dataset: {cfg.dataset_name}")
-        run_colmap_impl(ColmapCommand.AUTOMATIC_RECONSTRUCTOR)
+        run_colmap_impl(ColmapCommand.FEATURE_EXTRACTOR)
     except COLMAPError as e:
         logger.error(f"COLMAP failed : {e}")
 

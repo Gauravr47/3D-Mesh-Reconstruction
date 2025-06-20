@@ -1,4 +1,5 @@
 # errors.py
+
 class PipelineError(Exception):
     """Base class for all pipeline-related errors."""
 

@@ -3,7 +3,8 @@ import os
 
 from scripts.error import PipelineError
 
-def extract_frames(video_file, output_dir, frame_rate = 2):
+## Function to extract images from user uploaded Video.
+def extract_frames(video_file, output_dir, frame_rate = 2): 
     cap = cv2.VideoCapture(video_file)
     
     frame_count = 0
@@ -29,6 +30,7 @@ def extract_frames(video_file, output_dir, frame_rate = 2):
     cap.release()
     cv2.destroyAllWindows()
 
+## Function to find uploaded Video.
 def find_video_in_folder(folder_path):
     if not os.path.exists(folder_path):
         raise PipelineError("No such video path exists")

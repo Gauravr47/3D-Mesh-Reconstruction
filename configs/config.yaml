@@ -13,3 +13,7 @@ automatic_reconstructor_options:
   use_gpu: true
   num_threads: 4
   gpu_index: [0]
+
+feature_extractor_options:
+  SiftExtraction:
+    upright: false
