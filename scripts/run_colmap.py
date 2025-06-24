@@ -35,7 +35,7 @@ def find_colmap():
 ## Entry point to run colmap C++ binary via python subprocess. 
 # All inputs are string values
 # Format - Command --arg1 val1 --arg2 val2 .... 
-def run_colmap(command, args): 
+def run_colmap(command, args, capture: bool = False): 
     try:
         colmap_bin = find_colmap()
     except FileNotFoundError as e:
@@ -44,7 +44,15 @@ def run_colmap(command, args):
     cmd = [colmap_bin, command] + args
     logger.info(f"Running: {' '.join(cmd)}")
     try:
-        subprocess.run(cmd, check=True)
+        if capture:
+            result = subprocess.run(cmd,stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=True)
+            return result
+        else:
+            subprocess.run(cmd,
+                check=True)
     except subprocess.CalledProcessError as e:
         logger.error(f"COLMAP command failed with exit code {e.returncode}")
         raise COLMAPError(str(e)) from e
@@ -80,7 +88,7 @@ def get_colmap_override_dict(command: ColmapCommand):
 ## Implementation Function to run COLMAP controller command
 # Based on the command, appropriate options are selected 
 # Internally uses run_colmap as an entry point to COLMAP C++ binaries
-def run_colmap_impl(command: ColmapCommand): 
+def run_colmap_impl(command: ColmapCommand, capture:bool = False): 
     try:
         #Make sure all the options are correct based on command
         #get config
@@ -100,7 +108,8 @@ def run_colmap_impl(command: ColmapCommand):
         if override_options:
             update_options(options, override_options)
 
-        run_colmap(command.value, options.to_cli_args())
+        result = run_colmap(command.value, options.to_cli_args(), capture)
+        return result
     except COLMAPError as e:   
         raise COLMAPError(e)
 
@@ -109,18 +118,20 @@ def generate_sparse():
     cfg = get_config()
     command = ColmapCommand
 
+    # Extract feature
     command = ColmapCommand.FEATURE_EXTRACTOR
     try:
-        run_colmap_impl(command)
+        logger.info("Extracting features. Please wait")
+        result = run_colmap_impl(command, True)
+        logger.info(result.stdout)
     except COLMAPError as e:
         raise COLMAPError(e)
     except Exception as e:
         raise COLMAPError(e)
 
+     # Match feature
     if cfg.data_type.lower() == "video":
         command = ColmapCommand.SEQUENTIAL_MATCHER
-    elif count_colmap_images_recursive(cfg.image_dir) < 1000: 
-        command = ColmapCommand.EXHAUSTIVE_MATCHER
     elif cfg.vocab_tree_path :
         command = ColmapCommand.VOCAB_TREE_MATCHER
     elif cfg.spatial_data_available:
@@ -129,10 +140,14 @@ def generate_sparse():
         command = ColmapCommand.EXHAUSTIVE_MATCHER
 
     try:
-        run_colmap_impl(command)
+        logger.info("Matching feature. Please wait")
+        result = run_colmap_impl(command, True)
+        logger.info(result.stdout)
     except COLMAPError as e:
         raise COLMAPError(e)
     except Exception as e:
         raise COLMAPError(e)
+    
+
     
 

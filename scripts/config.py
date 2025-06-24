@@ -21,15 +21,15 @@ class Config:
         self.image_dir = os.path.abspath(os.path.join(self.data_dir, "images"))
         self.video_dir = os.path.abspath(os.path.join(self.data_dir,  "video"))
         self.mesh_dir = os.path.abspath(os.path.join(self.results_dir, "meshes"))
-        self.vocab_tree_path = data.get('vocab_tree_path', " ")
+        self.vocab_tree_path = data.get('vocab_tree_path')
         self.automatic_reconstructor_options = data.get('automatic_reconstructor_options', {})
         self.feature_extractor_options = data.get('feature_extractor_options', {})
         self.exhaustive_matcher_options = data.get('exhaustive_matcher_options', {})
         self.sequential_matcher_options = data.get('sequential_matcher_options', {})
         self.vocab_tree_matcher_options = data.get('vocab_tree_matcher_options', {})
         self.spatial_matcher_options = data.get('spatial_matcher_options', {})
-        self.spatial_data_available = data.get('spatial_data_available', 'false')
-        
+        self.spatial_data_available = data.get('spatial_data_available', False)
+
     def _resolve_gpu(self, val): #resolve the gpu computation based on availability 
         if isinstance(val, str):
             val = val.lower()

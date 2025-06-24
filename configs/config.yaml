@@ -1,4 +1,4 @@
-dataset_name: south-building         # Change this to switch datasets
+dataset_name: gerrard-hall         # Change this to switch datasets
 data_type: individual  # choices: individual, video, internet
 
 # These will be resolved dynamically in main.py based on dataset_name
