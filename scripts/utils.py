@@ -9,3 +9,10 @@ def flatten_dict(d, parent_key="", sep="."):
         else:
             items[new_key] = v
     return items
+
+def match_dict(target, input):
+    for k, v in input.items():
+        if isinstance(v, dict):
+            match_dict(target, k)
+        else:
+            target[k] = v

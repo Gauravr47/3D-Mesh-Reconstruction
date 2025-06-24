@@ -4,9 +4,8 @@ import subprocess
 from scripts.error import COLMAPError
 from scripts.logger import logger
 from scripts.config import get_config
-from scripts.utils import flatten_dict
-from scripts.colmap_options import ColmapCommand, AutomaticReconstructorOptions, FeatureExtractorOptions, ExhaustiveMatcherOptions
-
+from scripts.colmap_options import ColmapCommand, AutomaticReconstructorOptions, FeatureExtractorOptions, ExhaustiveMatcherOptions, SequentialMatcherOptions, SpatialMatcherOptions, VocabTreeMatcherOptions,update_options
+from scripts.image_manager import count_colmap_images_recursive
 ## Function to get the colmap binary
 # Searches colmap if set as env variable
 # Other search location
@@ -58,7 +57,10 @@ def get_colmap_options_class(command: ColmapCommand):
     return {
         ColmapCommand.AUTOMATIC_RECONSTRUCTOR: AutomaticReconstructorOptions,
         ColmapCommand.FEATURE_EXTRACTOR: FeatureExtractorOptions,
-        ColmapCommand.MATCHER: ExhaustiveMatcherOptions,
+        ColmapCommand.EXHAUSTIVE_MATCHER: ExhaustiveMatcherOptions,
+        ColmapCommand.SEQUENTIAL_MATCHER: SequentialMatcherOptions,
+        ColmapCommand.SPATIAL_MATCHER: SpatialMatcherOptions,
+        ColmapCommand.VOCAB_TREE_MATCHER: VocabTreeMatcherOptions
         # Add more as needed
     }[command]
 
@@ -68,11 +70,14 @@ def get_colmap_override_dict(command: ColmapCommand):
     return {
         ColmapCommand.AUTOMATIC_RECONSTRUCTOR: cfg.automatic_reconstructor_options,
         ColmapCommand.FEATURE_EXTRACTOR: cfg.feature_extractor_options,
-        ColmapCommand.MATCHER: cfg.exhaustive_matcher_options,
+        ColmapCommand.EXHAUSTIVE_MATCHER: cfg.exhaustive_matcher_options,
+        ColmapCommand.SEQUENTIAL_MATCHER: cfg.sequential_matcher_options,
+        ColmapCommand.SPATIAL_MATCHER: cfg.spatial_matcher_options,
+        ColmapCommand.VOCAB_TREE_MATCHER: cfg.vocab_tree_matcher_options
         # Add more as needed
     }[command]
 
-## IMplementation Function to run COLMAP controller command
+## Implementation Function to run COLMAP controller command
 # Based on the command, appropriate options are selected 
 # Internally uses run_colmap as an entry point to COLMAP C++ binaries
 def run_colmap_impl(command: ColmapCommand): 
@@ -84,35 +89,50 @@ def run_colmap_impl(command: ColmapCommand):
         
         override_options = get_colmap_override_dict(command)
         #Override options if any passed through config yaml
-        override_options = flatten_dict(override_options |{
+        override_options = override_options |{
             'image_path': cfg.image_dir,
             'workspace_path': cfg.results_dir,
             'database_path': cfg.results_dir+"\\database.db" ,
             'output_path':cfg.results_dir,
             'vocab_tree_path':cfg.vocab_tree_path
-        })
+        }
         
         if override_options:
-            for key, value in override_options.items():
-                parts = key.split(".")
-                target = options
-                for part in parts[:-1]:
-                    if hasattr(target, part):
-                        target = getattr(target, part)
-                    else:
-                        raise AttributeError(f"'{type(target).__name__}' object has no attribute '{part}'")
-
-                final_attr = parts[-1]
-                if hasattr(target, final_attr):
-                    setattr(target, final_attr, value)
-                
-            # for k, v in override_options.items():
-            #     if hasattr(options, k):
-            #         setattr(options, k, v)
+            update_options(options, override_options)
 
         run_colmap(command.value, options.to_cli_args())
     except COLMAPError as e:   
         raise COLMAPError(e)
 
 
+def generate_sparse():
+    cfg = get_config()
+    command = ColmapCommand
+
+    command = ColmapCommand.FEATURE_EXTRACTOR
+    try:
+        run_colmap_impl(command)
+    except COLMAPError as e:
+        raise COLMAPError(e)
+    except Exception as e:
+        raise COLMAPError(e)
+
+    if cfg.data_type.lower() == "video":
+        command = ColmapCommand.SEQUENTIAL_MATCHER
+    elif count_colmap_images_recursive(cfg.image_dir) < 1000: 
+        command = ColmapCommand.EXHAUSTIVE_MATCHER
+    elif cfg.vocab_tree_path :
+        command = ColmapCommand.VOCAB_TREE_MATCHER
+    elif cfg.spatial_data_available:
+        command = ColmapCommand.SPATIAL_MATCHER
+    else:
+        command = ColmapCommand.EXHAUSTIVE_MATCHER
+
+    try:
+        run_colmap_impl(command)
+    except COLMAPError as e:
+        raise COLMAPError(e)
+    except Exception as e:
+        raise COLMAPError(e)
     
+

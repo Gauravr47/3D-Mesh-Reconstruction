@@ -16,4 +16,4 @@ automatic_reconstructor_options:
 
 feature_extractor_options:
   SiftExtraction:
-    upright: false
+    upright: true

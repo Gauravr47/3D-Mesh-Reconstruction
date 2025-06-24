@@ -48,3 +48,12 @@ def find_video_in_folder(folder_path):
             cap.release()
     
     return None  # No 
+
+def count_colmap_images_recursive(folder_path):
+    colmap_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.pgm', '.ppm', '.tif', '.tiff'}
+    count = 0
+    for root, _, files in os.walk(folder_path):
+        for file in files:
+            if os.path.splitext(file)[1].lower() in colmap_extensions:
+                count += 1
+    return count

@@ -16,7 +16,6 @@ class Config:
         self.base_data_dir = data.get('base_data_dir', 'data')
         self.base_results_dir = data.get('base_results_dir' , 'results')
         self.use_nerf = data.get('run_nerf', 'true')
-        self.data_is_video = data.get('data_is_video', 'false')
         self.data_dir = os.path.abspath(os.path.join(self.base_data_dir, self.dataset_name))
         self.results_dir = os.path.abspath(os.path.join(self.base_results_dir, self.dataset_name))
         self.image_dir = os.path.abspath(os.path.join(self.data_dir, "images"))
@@ -26,7 +25,11 @@ class Config:
         self.automatic_reconstructor_options = data.get('automatic_reconstructor_options', {})
         self.feature_extractor_options = data.get('feature_extractor_options', {})
         self.exhaustive_matcher_options = data.get('exhaustive_matcher_options', {})
-    
+        self.sequential_matcher_options = data.get('sequential_matcher_options', {})
+        self.vocab_tree_matcher_options = data.get('vocab_tree_matcher_options', {})
+        self.spatial_matcher_options = data.get('spatial_matcher_options', {})
+        self.spatial_data_available = data.get('spatial_data_available', 'false')
+        
     def _resolve_gpu(self, val): #resolve the gpu computation based on availability 
         if isinstance(val, str):
             val = val.lower()

@@ -6,8 +6,8 @@ import torch
 from pathlib import Path
 
 from scripts.colmap_options import ColmapCommand
-from scripts.run_colmap import run_colmap_impl
-from scripts.convert_vid_to_img import extract_frames, find_video_in_folder
+from scripts.run_colmap import run_colmap_impl, generate_sparse
+from scripts.image_manager import extract_frames, find_video_in_folder
 from scripts.error import PipelineError, COLMAPError, Open3DError
 from scripts.logger import logger
 from scripts.config import load_config, get_config
@@ -68,7 +68,7 @@ def main():
 
     try:
         logger.info(f" Running pipeline on dataset: {cfg.dataset_name}")
-        run_colmap_impl(ColmapCommand.FEATURE_EXTRACTOR)
+        generate_sparse()
     except COLMAPError as e:
         logger.error(f"COLMAP failed : {e}")
 

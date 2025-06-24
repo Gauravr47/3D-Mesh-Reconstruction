@@ -6,7 +6,10 @@ from scripts.error import COLMAPError
 class ColmapCommand(Enum):
     AUTOMATIC_RECONSTRUCTOR = "automatic_reconstructor"
     FEATURE_EXTRACTOR = "feature_extractor"
-    MATCHER = "exhaustive_matcher"
+    EXHAUSTIVE_MATCHER = "exhaustive_matcher"
+    SEQUENTIAL_MATCHER = "sequential_matcher"
+    VOCAB_TREE_MATCHER = "vocab_tree_matcher"
+    SPATIAL_MATCHER = "spatial_matcher"
     MAPPER = "mapper"
     IMAGE_UNDISTRORTER = "image_undistorter"
     PATCH_MATCH = "patch_match_stereo"
@@ -41,10 +44,21 @@ class DescriptorNormalization(str, Enum):
     L1_ROOT = "l1_root"
     L2 = "l2"
 
-@dataclass
-class ColmapOptions: ## base colmap option class to be inherited by other option data classes
+## Function to update the options from an user updated dictionary
+def update_options(options = dataclass, input = dict):
+    for k, v in input.items():
+        target = options
+        if isinstance(v, dict):
+            target = getattr(target, k)
+            update_options(target, v)
+        else:
+            if hasattr(target, k):
+                setattr(target, k, v)
 
     
+@dataclass
+class ColmapOptions: ## base colmap option class to be inherited by other option data classes
+  
     def to_cli_args(self) -> List[str]:
         args = []
 
@@ -245,8 +259,171 @@ class FeatureExtractorOptions(ColmapOptions):
         self.post_init_enum_validation({
             "descriptor_normalization": DescriptorNormalization
         })
+## Sift matching colmap option class 
+# Inherits Colmap option classes
+@dataclass
+class SiftMatchingOptions:
+    ## Number of threads for feature matching and geometric verification.
+    num_threads: int = -1
+    ## Whether to use the GPU for feature matching.
+    use_gpu: bool = True
+    ## Index of the GPU used for feature matching. For multi-GPU matching,
+    ## you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
+    gpu_index: str = "-1"
+    ## Maximum distance ratio between first and second best match.
+    max_ratio: float = 0.8
+    ## Maximum distance to best match.
+    max_distance: float = 0.7
+    ## Whether to enable cross checking in matching.
+    cross_check: bool = True
+    ## Maximum number of matches.
+    max_num_matches: int = 32768
+    ## Whether to perform guided matching, if geometric verification succeeds.
+    guided_matching: bool = False
+    ## Whether to use brute-force instead of FLANN based CPU matching.
+    cpu_brute_force_matcher: Optional[bool] = None
+    ## Cache for reusing descriptor index for feature matching.
+    ## This should be a thread-safe LRU cache if implemented.
+    cpu_descriptor_index_cache: Optional[object] = field(default=None)
 
+## Exhaustive matching colmap option class. Different that Exhaustive matcher options
+# Inherits Colmap option classes
+@dataclass
+class ExhaustiveMatchingOptions(ColmapOptions):
+    ## Block size, i.e. number of images to simultaneously load into memory.
+    block_size: int = 50
+
+@dataclass
+class RANSACOptions:
+    ## Maximum allowed reprojection error for a point to be an inlier.
+    max_error: float = 4.0
+    ## RANSAC confidence level.
+    confidence: float = 0.999
+    ## Minimum number of RANSAC iterations.
+    min_num_trials: int = 100
+    ## Maximum number of RANSAC iterations.
+    max_num_trials: int = 10000
+    ## Minimum inlier ratio to continue early.
+    min_inlier_ratio: float = 0.25
+
+@dataclass
+class TwoViewGeometryOptions:
+    ## Minimum number of inliers for non-degenerate two-view geometry.
+    min_num_inliers: int = 15
+    # Maximum allowed reprojection error for a point to be an inlier.
+    max_error: float = 4.0
+    ## Whether to compute the relative pose between views.
+    compute_relative_pose: bool = False
+    ## Whether to estimate multiple geometric models from inliers.
+    multiple_models: bool = False
+    ## Maximum number of RANSAC iterations.
+    max_num_trials: int = 10000
+    ## Minimum inlier ratio to continue early.
+    min_inlier_ratio: float = 0.25
+    ## RANSAC confidence level.
+    confidence: float = 0.999
+    
 
 @dataclass
 class ExhaustiveMatcherOptions(ColmapOptions):
+    random_seed: int = 0
     log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    database_path: Optional[str] = None ## Path to database in which to store the extracted data.
+    SiftMatching : SiftMatchingOptions = SiftMatchingOptions()
+    ExhaustiveMatching: ExhaustiveMatchingOptions= ExhaustiveMatchingOptions()
+    TwoViewGeometry :TwoViewGeometryOptions = TwoViewGeometryOptions()
+    
+## Vocab Tree matching colmap option class. Different that Vocab Tree matcher options
+# Inherits Colmap option classes
+@dataclass
+class VocabTreeMatchingOptions:
+    ## Number of images to retrieve for each query image.
+    num_images: int = 100
+    ## Number of nearest neighbors to retrieve per query feature.
+    num_nearest_neighbors: int = 5
+    ## Number of nearest-neighbor checks to use in retrieval.
+    num_checks: int = 256
+    ## How many images to return after spatial verification. Set to 0 to turn off spatial verification.
+    num_images_after_verification: int = 0
+    ## The maximum number of features to use for indexing an image.
+    ## If an image has more features, only the largest-scale features will be indexed.
+    max_num_features: int = -1
+    ## Path to the vocabulary tree.
+    vocab_tree_path: str = ""
+    ## Optional path to file with specific image names to match.
+    match_list_path: str = ""
+
+@dataclass
+class VocabTreeMatcherOptions(ColmapOptions):
+    random_seed: int = 0
+    log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    database_path: Optional[str] = None ## Path to database in which to store the extracted data.
+    SiftMatching : SiftMatchingOptions = SiftMatchingOptions()
+    VocaltreeMatching: VocabTreeMatchingOptions = VocabTreeMatchingOptions()
+    TwoViewGeometry :TwoViewGeometryOptions = TwoViewGeometryOptions()
+
+## Sequential matching colmap option class. Different that Sequential matcher options
+# Inherits Colmap option classes
+@dataclass
+class SequentialMatchingOptions:
+    ## Number of overlapping image pairs.
+    overlap: int = 10
+    ## Whether to match images against their quadratic neighbors.
+    quadratic_overlap: bool = True
+    ## Whether to enable vocabulary tree based loop detection.
+    loop_detection: bool = False
+    ## Loop detection is invoked every `loop_detection_period` images.
+    loop_detection_period: int = 10
+    ## The number of images to retrieve in loop detection. This number should
+    ## be significantly bigger than the sequential matching overlap.
+    loop_detection_num_images: int = 50
+    ## Number of nearest neighbors to retrieve per query feature.
+    loop_detection_num_nearest_neighbors: int = 1
+    ## Number of nearest-neighbor checks to use in retrieval.
+    loop_detection_num_checks: int = 256
+    ## How many images to return after spatial verification. Set to 0 to turn off.
+    loop_detection_num_images_after_verification: int = 0
+    ## The maximum number of features to use for indexing an image.
+    loop_detection_max_num_features: int = -1
+    ## Path to the vocabulary tree.
+    vocab_tree_path: str = ""
+
+@dataclass
+class SequentialMatcherOptions(ColmapOptions):
+    random_seed: int = 0
+    log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    database_path: Optional[str] = None ## Path to database in which to store the extracted data. 
+    SiftMatching : SiftMatchingOptions = SiftMatchingOptions()
+    SequentialMatching: SequentialMatchingOptions = SequentialMatchingOptions()
+    TwoViewGeometry :TwoViewGeometryOptions = TwoViewGeometryOptions()
+
+## Spatial matching colmap option class. Different that Spatial matcher options
+# Inherits Colmap option classes
+@dataclass
+class SpatialMatchingOptions:
+    ## Whether to ignore the Z-component of the location prior.
+    ignore_z: bool = True
+    ## The maximum number of nearest neighbors to match.
+    max_num_neighbors: int = 50
+    ## The maximum distance between the query and nearest neighbor.
+    ## For GPS coordinates the unit is Euclidean distance in meters.
+    max_distance: float = 100.0
+
+
+@dataclass
+class SpatialMatcherOptions(ColmapOptions):
+    random_seed: int = 0
+    log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    database_path: Optional[str] = None ## Path to database in which to store the extracted data. 
+    SiftMatching : SiftMatchingOptions = SiftMatchingOptions()
+    SpatialMatching: SpatialMatchingOptions = SpatialMatchingOptions()
+    TwoViewGeometry :TwoViewGeometryOptions = TwoViewGeometryOptions()
+
