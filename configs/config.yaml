@@ -17,3 +17,11 @@ automatic_reconstructor_options:
 feature_extractor_options:
   SiftExtraction:
     upright: true
+
+image_registrator_options:
+  input_path: base_data_dir
+
+point_triangulator_options:
+  Mapper:
+    init_min_num_inliers: 50
+    use_gpu: true

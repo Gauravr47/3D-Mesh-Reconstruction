@@ -1,5 +1,5 @@
 from dataclasses import dataclass, fields, asdict, field, is_dataclass
-from typing import List, Union, Optional, Type
+from typing import List, Union, Optional, Type, Set
 from enum import Enum
 from scripts.error import COLMAPError
 
@@ -10,7 +10,9 @@ class ColmapCommand(Enum):
     SEQUENTIAL_MATCHER = "sequential_matcher"
     VOCAB_TREE_MATCHER = "vocab_tree_matcher"
     SPATIAL_MATCHER = "spatial_matcher"
+    POINT_TRIANGULATOR = "point_triangulator"
     MAPPER = "mapper"
+    IMAGE_REGISTRATOR = "image_registrator"
     IMAGE_UNDISTRORTER = "image_undistorter"
     PATCH_MATCH = "patch_match_stereo"
     FUSION = "stereo_fusion"
@@ -55,7 +57,26 @@ def update_options(options = dataclass, input = dict):
             if hasattr(target, k):
                 setattr(target, k, v)
 
-    
+
+## Function to get appropriate options for COLMAP controller command
+# AUTOMATIC_RECONSTRUCTOR: AutomaticReconstructorOptions
+# FEATURE_EXTRACTOR: FeatureExtractorOptions
+# MATCHER: ExhaustiveMatcherOptions
+def get_colmap_options_class(command: ColmapCommand):
+    return {
+        ColmapCommand.AUTOMATIC_RECONSTRUCTOR: AutomaticReconstructorOptions,
+        ColmapCommand.FEATURE_EXTRACTOR: FeatureExtractorOptions,
+        ColmapCommand.EXHAUSTIVE_MATCHER: ExhaustiveMatcherOptions,
+        ColmapCommand.SEQUENTIAL_MATCHER: SequentialMatcherOptions,
+        ColmapCommand.SPATIAL_MATCHER: SpatialMatcherOptions,
+        ColmapCommand.VOCAB_TREE_MATCHER: VocabTreeMatcherOptions,
+        ColmapCommand.IMAGE_REGISTRATOR: ImageRegistratorOptions,
+        ColmapCommand.POINT_TRIANGULATOR: PointTriangulatorOptions,
+        ColmapCommand.MAPPER: MapperOptions
+        # Add more as needed
+    }[command]
+
+
 @dataclass
 class ColmapOptions: ## base colmap option class to be inherited by other option data classes
   
@@ -427,3 +448,163 @@ class SpatialMatcherOptions(ColmapOptions):
     SpatialMatching: SpatialMatchingOptions = SpatialMatchingOptions()
     TwoViewGeometry :TwoViewGeometryOptions = TwoViewGeometryOptions()
 
+@dataclass
+class ImageRegistratorOptions(ColmapOptions):
+    random_seed: int = 0
+    log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    database_path: Optional[str] = None ## Path to database in which to store the extracted data. 
+    input_path: Optional[str] = None
+    output_path: Optional[str] = None
+
+
+@dataclass
+class IncrementalMapperOptions(ColmapOptions):
+    min_num_matches: int = 15  ## Minimum number of matches.
+    ## Whether to ignore the inlier matches of watermark image pairs.
+    ignore_watermarks: bool = False
+    ## Whether to reconstruct multiple sub-models.
+    multiple_models: bool = True
+    ## The number of sub-models to reconstruct.
+    max_num_models: int = 50
+    ## The maximum number of overlapping images between sub-models. If the
+    ## current sub-model shares more than this number of images with another
+    ## model, then the reconstruction is stopped.
+    max_model_overlap: int = 20
+    ## The minimum number of registered images of a sub-model, otherwise the
+    ## sub-model is discarded. Note that the first sub-model is always kept
+    ## independent of size.
+    min_model_size: int = 10
+    ## The image identifiers used to initialize the reconstruction. Note that
+    ## only one or both image identifiers can be specified. In the former case,
+    ## the second image is automatically determined.
+    init_image_id1: int = -1
+    init_image_id2: int = -1
+    ## The number of trials to initialize the reconstruction.
+    init_num_trials: int = 200
+    ## Whether to extract colors for reconstructed points.
+    extract_colors: bool = True
+    ## The number of threads to use during reconstruction.
+    num_threads: int = -1
+    ## Thresholds for filtering images with degenerate intrinsics.
+    min_focal_length_ratio: float = 0.1
+    max_focal_length_ratio: float = 10.0
+    max_extra_param: float = 1.0
+    ## Which intrinsic parameters to optimize during the reconstruction.
+    ba_refine_focal_length: bool = True
+    ba_refine_principal_point: bool = False
+    ba_refine_extra_params: bool = True
+    ## The minimum number of residuals per bundle adjustment problem to
+    ## enable multi-threaded solving of the problems.
+    ba_min_num_residuals_for_cpu_multi_threading: int = 50000
+    ## The number of images to optimize in local bundle adjustment.
+    ba_local_num_images: int = 6
+    ## Ceres solver function tolerance for local bundle adjustment
+    ba_local_function_tolerance: float = 0.0
+    ## The maximum number of local bundle adjustment iterations.
+    ba_local_max_num_iterations: int = 25
+    ## The growth rates after which to perform global bundle adjustment.
+    ba_global_images_ratio: float = 1.1
+    ba_global_points_ratio: float = 1.1
+    ba_global_images_freq: int = 500
+    ba_global_points_freq: int = 250000
+    ## Ceres solver function tolerance for global bundle adjustment
+    ba_global_function_tolerance: float = 0.0
+    ## The maximum number of global bundle adjustment iterations.
+    ba_global_max_num_iterations: int = 50
+    ## The thresholds for iterative bundle adjustment refinements.
+    ba_local_max_refinements: int = 2
+    ba_local_max_refinement_change: float = 0.001
+    ba_global_max_refinements: int = 5
+    ba_global_max_refinement_change: float = 0.0005
+    ## Whether to use Ceres' CUDA sparse linear algebra library, if available.
+    ba_use_gpu: bool = False
+    ba_gpu_index: str = "-1"
+
+    ## Path to a folder with reconstruction snapshots during incremental
+    ## reconstruction. Snapshots will be saved according to the specified
+    ## frequency of registered images.
+    snapshot_path: Optional[str] = None
+    snapshot_images_freq: int = 0
+
+    ## If reconstruction is provided as input, fix the existing image poses.
+    fix_existing_images: bool = False
+    ## Mapper and triangulation options (placeholders, should be custom classes)
+    mapper: Optional[ColmapOptions] = None
+    ## Maximum transitivity to search for correspondences.
+    tri_max_transitivity: int = 1
+    ## Maximum angular error to create new triangulations.
+    tri_create_max_angle_error: float = 2.0
+    ## Maximum angular error to continue existing triangulations.
+    tri_continue_max_angle_error: float = 2.0
+    ## Maximum reprojection error in pixels to merge triangulations.
+    tri_merge_max_reproj_error: float = 4.0
+    ## Maximum reprojection error to complete an existing triangulation.
+    tri_complete_max_reproj_error: float = 4.0
+    ## Maximum transitivity for track completion.
+    tri_complete_max_transitivity: int = 5
+    ## Maximum angular error to re-triangulate under-reconstructed image pairs.
+    tri_re_max_angle_error: float = 5.0
+    ## Minimum ratio of common triangulations between an image pair over the
+    ## number of correspondences between that image pair to be considered
+    ## as under-reconstructed.
+    tri_re_min_ratio: float = 0.2
+    ## Maximum number of trials to re-triangulate an image pair.
+    tri_re_max_trials: int = 1
+    ## Minimum pairwise triangulation angle for a stable triangulation.
+    tri_min_angle: float = 1.5
+    ## Whether to ignore two-view tracks.
+    tri_ignore_two_view_tracks: bool = True
+    ## Minimum number of inliers for initial image pair.
+    init_min_num_inliers: int = 100
+    ## Maximum error in pixels for two-view geometry estimation for initial image pair.
+    init_max_error: float = 4.0
+    ## Maximum forward motion for initial image pair.
+    init_max_forward_motion: float = 0.95
+    ## Minimum triangulation angle for initial image pair.
+    init_min_tri_angle: float = 16.0
+    ## Maximum number of trials to use an image for initialization.
+    init_max_reg_trials: int = 2
+    ## Maximum reprojection error in absolute pose estimation.
+    abs_pose_max_error: float = 12.0
+    ## Minimum number of inliers in absolute pose estimation.
+    abs_pose_min_num_inliers: int = 30
+    ## Minimum inlier ratio in absolute pose estimation.
+    abs_pose_min_inlier_ratio: float = 0.25
+    ## Maximum reprojection error in pixels for observations.
+    filter_max_reproj_error: float = 4.0
+    ## Minimum triangulation angle in degrees for stable 3D points.
+    filter_min_tri_angle: float = 1.5
+    ## Maximum number of trials to register an image.
+    max_reg_trials: int = 3
+
+   
+@dataclass
+class PointTriangulatorOptions(ColmapOptions):
+    random_seed: int = 0
+    log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    database_path: Optional[str] = None ## Path to database in which to store the extracted data. 
+    image_path: Optional[str] = None  ## Root path to folder which contains the images.
+    input_path: Optional[str] = None ## Path to sparse folder
+    output_path: Optional[str] = None ## Path to sparse folder
+    ## Whether to clear all existing points and observations and recompute theimage_ids 
+    # based on matching filenamesbetween the model and the database
+    clear_points:bool = True
+    ## Whether to refine the intrinsics of the cameras (fixing the principal point)
+    refine_intrinsics: bool = False
+    Mapper : IncrementalMapperOptions = IncrementalMapperOptions()
+
+@dataclass
+class MapperOptions(ColmapOptions):
+    random_seed: int = 0
+    log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    database_path: Optional[str] = None ## Path to database in which to store the extracted data. 
+    image_path: Optional[str] = None  ## Root path to folder which contains the images.
+    input_path: Optional[str] = None ## Path to sparse folder
+    output_path: Optional[str] = None ## Path to sparse folder
+    Mapper : IncrementalMapperOptions = IncrementalMapperOptions()

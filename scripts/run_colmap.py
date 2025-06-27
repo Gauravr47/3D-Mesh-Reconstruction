@@ -4,7 +4,7 @@ import subprocess
 from scripts.error import COLMAPError
 from scripts.logger import logger
 from scripts.config import get_config
-from scripts.colmap_options import ColmapCommand, AutomaticReconstructorOptions, FeatureExtractorOptions, ExhaustiveMatcherOptions, SequentialMatcherOptions, SpatialMatcherOptions, VocabTreeMatcherOptions,update_options
+from scripts.colmap_options import ColmapCommand, get_colmap_options_class, update_options
 from scripts.image_manager import count_colmap_images_recursive
 ## Function to get the colmap binary
 # Searches colmap if set as env variable
@@ -57,38 +57,29 @@ def run_colmap(command, args, capture: bool = False):
         logger.error(f"COLMAP command failed with exit code {e.returncode}")
         raise COLMAPError(str(e)) from e
 
-## Function to get appropriate options for COLMAP controller command
-# AUTOMATIC_RECONSTRUCTOR: AutomaticReconstructorOptions
-# FEATURE_EXTRACTOR: FeatureExtractorOptions
-# MATCHER: ExhaustiveMatcherOptions
-def get_colmap_options_class(command: ColmapCommand):
-    return {
-        ColmapCommand.AUTOMATIC_RECONSTRUCTOR: AutomaticReconstructorOptions,
-        ColmapCommand.FEATURE_EXTRACTOR: FeatureExtractorOptions,
-        ColmapCommand.EXHAUSTIVE_MATCHER: ExhaustiveMatcherOptions,
-        ColmapCommand.SEQUENTIAL_MATCHER: SequentialMatcherOptions,
-        ColmapCommand.SPATIAL_MATCHER: SpatialMatcherOptions,
-        ColmapCommand.VOCAB_TREE_MATCHER: VocabTreeMatcherOptions
-        # Add more as needed
-    }[command]
-
 ## Function to override options for COLMAP controller command by user defined CLI options
 def get_colmap_override_dict(command: ColmapCommand):
-    cfg = get_config()
-    return {
-        ColmapCommand.AUTOMATIC_RECONSTRUCTOR: cfg.automatic_reconstructor_options,
-        ColmapCommand.FEATURE_EXTRACTOR: cfg.feature_extractor_options,
-        ColmapCommand.EXHAUSTIVE_MATCHER: cfg.exhaustive_matcher_options,
-        ColmapCommand.SEQUENTIAL_MATCHER: cfg.sequential_matcher_options,
-        ColmapCommand.SPATIAL_MATCHER: cfg.spatial_matcher_options,
-        ColmapCommand.VOCAB_TREE_MATCHER: cfg.vocab_tree_matcher_options
-        # Add more as needed
-    }[command]
+    try:
+        cfg = get_config()
+        return {
+            ColmapCommand.AUTOMATIC_RECONSTRUCTOR: cfg.automatic_reconstructor_options,
+            ColmapCommand.FEATURE_EXTRACTOR: cfg.feature_extractor_options,
+            ColmapCommand.EXHAUSTIVE_MATCHER: cfg.exhaustive_matcher_options,
+            ColmapCommand.SEQUENTIAL_MATCHER: cfg.sequential_matcher_options,
+            ColmapCommand.SPATIAL_MATCHER: cfg.spatial_matcher_options,
+            ColmapCommand.VOCAB_TREE_MATCHER: cfg.vocab_tree_matcher_options,
+            ColmapCommand.IMAGE_REGISTRATOR: cfg.image_registrator_options,
+            ColmapCommand.POINT_TRIANGULATOR: cfg.point_triangulator_options,
+            ColmapCommand.MAPPER: cfg.mapper_options
+            # Add more as needed
+        }[command]
+    except Exception as e:
+        raise COLMAPError(f"Overide options not set for the command :{command.value} " )
 
 ## Implementation Function to run COLMAP controller command
 # Based on the command, appropriate options are selected 
 # Internally uses run_colmap as an entry point to COLMAP C++ binaries
-def run_colmap_impl(command: ColmapCommand, capture:bool = False): 
+def run_colmap_impl(command: ColmapCommand, capture:bool = False, additional_args:dict = {}): 
     try:
         #Make sure all the options are correct based on command
         #get config
@@ -102,8 +93,9 @@ def run_colmap_impl(command: ColmapCommand, capture:bool = False):
             'workspace_path': cfg.results_dir,
             'database_path': cfg.results_dir+"\\database.db" ,
             'output_path':cfg.results_dir,
-            'vocab_tree_path':cfg.vocab_tree_path
-        }
+            'vocab_tree_path':cfg.vocab_tree_path,
+        } | additional_args
+        
         
         if override_options:
             update_options(options, override_options)
@@ -117,7 +109,7 @@ def run_colmap_impl(command: ColmapCommand, capture:bool = False):
 def generate_sparse():
     cfg = get_config()
     command = ColmapCommand
-
+    
     # Extract feature
     command = ColmapCommand.FEATURE_EXTRACTOR
     try:
@@ -148,6 +140,17 @@ def generate_sparse():
     except Exception as e:
         raise COLMAPError(e)
     
-
+    command = ColmapCommand.MAPPER
+    try:
+        logger.info("Generating Sparse. Please wait")
+        sparse_path = os.path.join(cfg.results_dir, 'sparse')
+        if not os.path.exists(sparse_path):
+            os.mkdir(sparse_path)
+        result = run_colmap_impl(command, False, {'output_path': sparse_path})
+        logger.info(result.stdout)
+    except COLMAPError as e:
+        raise COLMAPError(e)
+    except Exception as e:
+        raise COLMAPError(e)
     
 

@@ -28,6 +28,9 @@ class Config:
         self.sequential_matcher_options = data.get('sequential_matcher_options', {})
         self.vocab_tree_matcher_options = data.get('vocab_tree_matcher_options', {})
         self.spatial_matcher_options = data.get('spatial_matcher_options', {})
+        self.image_registrator_options = data.get('image_registrator_options', {})
+        self.point_triangulator_options = data.get('point_triangulator_options', {})
+        self.mapper_options = data.get('mapper_options', {})
         self.spatial_data_available = data.get('spatial_data_available', False)
 
     def _resolve_gpu(self, val): #resolve the gpu computation based on availability 
