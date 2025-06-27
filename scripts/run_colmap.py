@@ -70,7 +70,9 @@ def get_colmap_override_dict(command: ColmapCommand):
             ColmapCommand.VOCAB_TREE_MATCHER: cfg.vocab_tree_matcher_options,
             ColmapCommand.IMAGE_REGISTRATOR: cfg.image_registrator_options,
             ColmapCommand.POINT_TRIANGULATOR: cfg.point_triangulator_options,
-            ColmapCommand.MAPPER: cfg.mapper_options
+            ColmapCommand.MAPPER: cfg.mapper_options,
+            ColmapCommand.IMAGE_UNDISTRORTER: cfg.image_undistorter_options,
+            ColmapCommand.IMAGE_REGISTRATOR: cfg.image_registrator_options
             # Add more as needed
         }[command]
     except Exception as e:

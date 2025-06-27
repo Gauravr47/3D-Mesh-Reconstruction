@@ -38,6 +38,16 @@ class MesherType(str, Enum):
     POISSON = "poisson"
     DELAUNAY = "delaunay"
 
+class DenseReconstrutionType(str, Enum):
+    COLMAP = "COLMAP"
+    PMVS = "PMVS"
+    CMP_MVS = "CMP-MVS"
+
+class UndistorterCopyPolicy(str, Enum):
+    COPY = "copy"
+    SOFT_LINK = "soft-link"
+    HARD_LINK = "hard-link"
+
 ## L1-normalizes each descriptor followed by element-wise square rooting.
 ## This normalization is usually better than standard L2-normalization.
 ## See "Three things everyone should know to improve object retrieval",
@@ -72,7 +82,8 @@ def get_colmap_options_class(command: ColmapCommand):
         ColmapCommand.VOCAB_TREE_MATCHER: VocabTreeMatcherOptions,
         ColmapCommand.IMAGE_REGISTRATOR: ImageRegistratorOptions,
         ColmapCommand.POINT_TRIANGULATOR: PointTriangulatorOptions,
-        ColmapCommand.MAPPER: MapperOptions
+        ColmapCommand.MAPPER: MapperOptions,
+        ColmapCommand.IMAGE_UNDISTRORTER: ImageUndistorterOptions
         # Add more as needed
     }[command]
 
@@ -608,3 +619,38 @@ class MapperOptions(ColmapOptions):
     input_path: Optional[str] = None ## Path to sparse folder
     output_path: Optional[str] = None ## Path to sparse folder
     Mapper : IncrementalMapperOptions = IncrementalMapperOptions()
+
+@dataclass
+class ImageUndistorterOptions(ColmapOptions):
+    random_seed: int = 0
+    log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    image_path: Optional[str] = None  ## Root path to folder which contains the images.
+    input_path: Optional[str] = None ## Path to sparse folder
+    output_path: Optional[str] = None ## Path to sparse folder
+    ## The amount of blank pixels in the undistorted image in the range [0, 1].
+    blank_pixels:float = 0.0
+    ## Minimum and maximum scale change of camera used to satisfy the blank
+    ## pixel constraint.
+    min_scale:float = 0.2
+    max_scale:float = 2.0
+    ## Maximum image size in terms of width or height of the undistorted camera.
+    max_image_size: int = -1
+    ## The 4 factors in the range [0, 1] that define the ROI (region of interest)
+    ## in original image. The bounding box pixel coordinates are calculated as
+    ##    (roi_min_x * Width, roi_min_y * Height) and
+    ##    (roi_max_x * Width, roi_max_y * Height).
+    roi_min_x: float = 0.0
+    roi_min_y: float = 0.0
+    roi_max_x: float = 1.0
+    roi_max_y: float = 1.0
+    copy_policy: str = "copy" ## Options: copy, soft-link, hard-link
+    output_type: str = "COLMAP" ##Options: COLMAP, PMVS, CMP-MVS
+    num_patch_match_src_images: int = 20
+
+    def __post_init__(self):
+        self.post_init_enum_validation({
+            "copy_policy": UndistorterCopyPolicy,
+            "output_type": DenseReconstrutionType
+        })
