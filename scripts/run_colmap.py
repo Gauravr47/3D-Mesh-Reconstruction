@@ -51,8 +51,9 @@ def run_colmap(command, args, capture: bool = False):
                 check=True)
             return result
         else:
-            subprocess.run(cmd,
+            result = subprocess.run(cmd,
                 check=True)
+            return result
     except subprocess.CalledProcessError as e:
         logger.error(f"COLMAP command failed with exit code {e.returncode}")
         raise COLMAPError(str(e)) from e
@@ -72,7 +73,9 @@ def get_colmap_override_dict(command: ColmapCommand):
             ColmapCommand.POINT_TRIANGULATOR: cfg.point_triangulator_options,
             ColmapCommand.MAPPER: cfg.mapper_options,
             ColmapCommand.IMAGE_UNDISTRORTER: cfg.image_undistorter_options,
-            ColmapCommand.IMAGE_REGISTRATOR: cfg.image_registrator_options
+            ColmapCommand.IMAGE_REGISTRATOR: cfg.image_registrator_options,
+            ColmapCommand.PATCH_MATCH: cfg.patch_match_stereo_options,
+            ColmapCommand.FUSION: cfg.stereo_fusion_options
             # Add more as needed
         }[command]
     except Exception as e:
@@ -94,7 +97,6 @@ def run_colmap_impl(command: ColmapCommand, capture:bool = False, additional_arg
             'image_path': cfg.image_dir,
             'workspace_path': cfg.results_dir,
             'database_path': cfg.results_dir+"\\database.db" ,
-            'output_path':cfg.results_dir,
             'vocab_tree_path':cfg.vocab_tree_path,
         } | additional_args
         
@@ -148,11 +150,50 @@ def generate_sparse():
         sparse_path = os.path.join(cfg.results_dir, 'sparse')
         if not os.path.exists(sparse_path):
             os.mkdir(sparse_path)
-        result = run_colmap_impl(command, False, {'output_path': sparse_path})
+        result = run_colmap_impl(command, True, {'output_path': sparse_path})
         logger.info(result.stdout)
     except COLMAPError as e:
         raise COLMAPError(e)
     except Exception as e:
         raise COLMAPError(e)
     
+def check_sparse_reconstruction_done(workspace_path):
+    sparse_path = os.path.join(workspace_path, "sparse", "0")
+    required_files = ["cameras.bin", "images.bin", "points3D.bin"]
 
+    if not os.path.exists(sparse_path):
+        return False
+
+    return all(os.path.isfile(os.path.join(sparse_path, f)) for f in required_files)
+
+def generate_dense():
+    cfg = get_config()
+    command = ColmapCommand
+
+    if not check_sparse_reconstruction_done(cfg.results_dir):
+        generate_sparse()
+    
+    dense_path = os.path.join(cfg.results_dir, 'dense')
+    if not os.path.exists(dense_path):
+        os.mkdir(dense_path)
+    
+    command = ColmapCommand.IMAGE_UNDISTRORTER
+    try:
+        logger.info("Undistorting Image. Please wait")
+        result = run_colmap_impl(command, False, {'input_path': os.path.join(cfg.results_dir, "sparse", "0"), 'output_path':dense_path})
+        logger.info(result.stdout)
+    except COLMAPError as e:
+        raise COLMAPError(e)
+    except Exception as e:
+        raise COLMAPError(e)
+
+    command = ColmapCommand.PATCH_MATCH
+    try:
+        logger.info("Starting Patch Match Fusion. Please wait")
+        
+        result = run_colmap_impl(command, False,{'workspace_path':dense_path} )
+        logger.info(result.stdout)
+    except COLMAPError as e:
+        raise COLMAPError(e)
+    except Exception as e:
+        raise COLMAPError(e)

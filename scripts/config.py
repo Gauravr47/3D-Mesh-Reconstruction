@@ -32,6 +32,8 @@ class Config:
         self.point_triangulator_options = data.get('point_triangulator_options', {})
         self.mapper_options = data.get('mapper_options', {})
         self.image_undistorter_options = data.get('image_undistorter_options', {})
+        self.patch_match_stereo_options = data.get('patch_match_stereo_options', {})
+        self.stereo_fusion_options = data.get('stereo_fusion_options', {})
         self.spatial_data_available = data.get('spatial_data_available', False)
 
     def _resolve_gpu(self, val): #resolve the gpu computation based on availability 

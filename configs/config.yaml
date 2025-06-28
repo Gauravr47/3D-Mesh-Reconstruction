@@ -30,3 +30,7 @@ mapper_options:
   Mapper:
     init_min_num_inliers: 50
     use_gpu: true
+
+patch_match_stereo_options:
+  PatchMatchStereo:
+    gpu_index: 0

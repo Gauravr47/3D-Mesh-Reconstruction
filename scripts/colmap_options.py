@@ -56,6 +56,15 @@ class DescriptorNormalization(str, Enum):
     L1_ROOT = "l1_root"
     L2 = "l2"
 
+class StereoFusionInputType(str, Enum):
+    GEOMETRIC = "geometric"
+    PHOTOMETRIC = "photometric"
+
+class StereoFusionOutputType(str, Enum):
+    PLY = "PLY"
+    BIN = "BIN"
+    TXT = "TXT"
+    
 ## Function to update the options from an user updated dictionary
 def update_options(options = dataclass, input = dict):
     for k, v in input.items():
@@ -83,7 +92,9 @@ def get_colmap_options_class(command: ColmapCommand):
         ColmapCommand.IMAGE_REGISTRATOR: ImageRegistratorOptions,
         ColmapCommand.POINT_TRIANGULATOR: PointTriangulatorOptions,
         ColmapCommand.MAPPER: MapperOptions,
-        ColmapCommand.IMAGE_UNDISTRORTER: ImageUndistorterOptions
+        ColmapCommand.IMAGE_UNDISTRORTER: ImageUndistorterOptions,
+        ColmapCommand.PATCH_MATCH: PatchMatchStereoOptions,
+        ColmapCommand.FUSION: StereoFusionOptions
         # Add more as needed
     }[command]
 
@@ -301,7 +312,7 @@ class SiftMatchingOptions:
     use_gpu: bool = True
     ## Index of the GPU used for feature matching. For multi-GPU matching,
     ## you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
-    gpu_index: str = "-1"
+    gpu_index: List[int] = field(default_factory=lambda: [-1])
     ## Maximum distance ratio between first and second best match.
     max_ratio: float = 0.8
     ## Maximum distance to best match.
@@ -530,8 +541,8 @@ class IncrementalMapperOptions(ColmapOptions):
     ba_global_max_refinements: int = 5
     ba_global_max_refinement_change: float = 0.0005
     ## Whether to use Ceres' CUDA sparse linear algebra library, if available.
-    ba_use_gpu: bool = False
-    ba_gpu_index: str = "-1"
+    ba_use_gpu: bool = True
+    ba_gpu_index: List[int] = field(default_factory=lambda: [-1])
 
     ## Path to a folder with reconstruction snapshots during incremental
     ## reconstruction. Snapshots will be saved according to the specified
@@ -653,4 +664,140 @@ class ImageUndistorterOptions(ColmapOptions):
         self.post_init_enum_validation({
             "copy_policy": UndistorterCopyPolicy,
             "output_type": DenseReconstrutionType
+        })
+
+@dataclass
+class PatchMatchOptions(ColmapOptions):
+    ## Maximum image size in either dimension.
+    max_image_size: int = -1
+     ## Index of the GPU used for patch match. For multi-GPU usage,
+    ## you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
+    gpu_index: List[int] = field(default_factory=lambda: [-1])
+     ## Depth range in which to randomly sample depth hypotheses.
+    depth_min: float = -1.0
+    depth_max:float = -1.0
+    ## Half window size to compute NCC photo-consistency cost.
+    window_radius:int = 5  
+    ## Number of pixels to skip when computing NCC. For a value of 1, every
+    ## pixel is used to compute the NCC. For larger values, only every n-th row
+    ## and column is used and the computation speed thereby increases roughly by
+    ## a factor of window_step^2. Note that not all combinations of window sizes
+    ## and steps produce nice results, especially if the step is greather than 2.
+    window_step: int = 1
+    ## Parameters for bilaterally weighted NCC.
+    sigma_spatial: int = -1
+    sigma_color: float = 0.2  
+    ## Number of random samples to draw in Monte Carlo sampling.
+    num_samples: int = 15   
+    ## Spread of the NCC likelihood function.
+    ncc_sigma: float = 0.6 
+    ## Minimum triangulation angle in degrees.
+    min_triangulation_angle: float = 1.0
+    ## Spread of the incident angle likelihood function.
+    incident_angle_sigma: float = 0.9 
+    ## Number of coordinate descent iterations. Each iteration consists
+    ## of four sweeps from left to right, top to bottom, and vice versa.
+    num_iterations: int = 2  
+    ## Whether to add a regularized geometric consistency term to the cost
+    ## function. If true, the `depth_maps` and `normal_maps` must not be null.
+    geom_consistency: bool = True 
+    ## The relative weight of the geometric consistency term w.r.t. to
+    ## the photo-consistency term.
+    geom_consistency_regularizer: float = 0.3
+    ## Maximum geometric consistency cost in terms of the forward-backward
+    ## reprojection error in pixels.
+    geom_consistency_max_cost: float = 3.0    
+    ## Whether to enable filtering.
+    filter: bool = True    
+    ## Minimum NCC coefficient for pixel to be photo-consistent.
+    filter_min_ncc: bool = 0.1    
+    ## Minimum triangulation angle to be stable.
+    filter_min_triangulation_angle: float = 3.0    
+    ## Minimum number of source images have to be consistent
+    ## for pixel not to be filtered.
+    filter_min_num_consistent: float = 2   
+    ## Maximum forward-backward reprojection error for pixel
+    ## to be geometrically consistent.
+    filter_geom_consistency_max_cost: float = 1.0   
+    ## Cache size in gigabytes for patch match, which keeps the bitmaps, depth
+    ## maps, and normal maps of this number of images in memory. A higher value
+    ## leads to less disk access and faster computation, while a lower value
+    ## leads to reduced memory usage. Note that a single image can consume a lot
+    ## of memory, if the consistency graph is dense.
+    cache_size: float = 32.0   
+    ## Whether to tolerate missing images/maps in the problem setup
+    allow_missing_files: bool = False   
+    ## Whether to write the consistency graph.
+    write_consistency_graph: bool = False
+
+@dataclass
+class PatchMatchStereoOptions(ColmapOptions):
+    random_seed: int = 0
+    log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    workspace_path: Optional[str] = None    #Path to the folder containing the undistorted images
+    workspace_format:str = "COLMAP"         # options {COLMAP, PMVS}
+    pmvs_option_name:str = "option-all"
+    config_path: Optional[str] = None 
+    PatchMatchStereo: PatchMatchOptions = PatchMatchOptions()
+
+    def __post_init__(self):
+        self.post_init_enum_validation({
+            "workspace_format": DenseReconstrutionType
+        })
+
+@dataclass
+class StereoFusionInternalOptions(ColmapOptions):
+    ## Path for PNG masks. Same format expected as ImageReaderOptions.
+    mask_path: Optional[str] = None 
+    ## The number of threads to use during fusion.
+    num_threads: int = -1
+    ## Maximum image size in either dimension.
+    max_image_size: int = -1
+    ## Minimum number of fused pixels to produce a point.
+    min_num_pixels: int = 5
+    ## Maximum number of pixels to fuse into a single point.
+    max_num_pixels: int = 10000
+    ## Maximum depth in consistency graph traversal.
+    max_traversal_depth: int = 100
+    ## Maximum relative difference between measured and projected pixel.
+    max_reproj_error: float = 2.0
+    ## Maximum relative difference between measured and projected depth.
+    max_depth_error: float = 0.01
+    ## Maximum angular difference in degrees of normals of pixels to be fused.
+    max_normal_error: float = 10.0
+    ## Number of overlapping images to transitively check for fusing points.
+    check_num_images: int = 50
+    ## Flag indicating whether to use LRU cache or pre-load all data
+    use_cache: bool = False
+    ## Cache size in gigabytes for fusion. The fusion keeps the bitmaps, depth
+    ## maps, normal maps, and consistency graphs of this number of images in
+    ## memory. A higher value leads to less disk access and faster fusion, while
+    ## a lower value leads to reduced memory usage. Note that a single image can
+    ## consume a lot of memory, if the consistency graph is dense.
+    cache_size: float = 32.0
+
+
+@dataclass
+class StereoFusionOptions(ColmapOptions):
+    random_seed: int = 0
+    log_to_stderr: bool = True
+    log_level: int = 0
+    project_path: Optional[str] = None
+    workspace_path: Optional[str] = None    #Path to the folder containing the undistorted images
+    workspace_format:str = "COLMAP"         #Options {COLMAP, PMVS}
+    pmvs_option_name:str = "option-all"
+    input_type: str = "geometric"           #Options {photometric, geometric}
+    output_type: str = "PLY"                #Options {BIN, TXT, PLY}
+    output_path: Optional[str] = None
+    config_path: Optional[str] = None 
+    bbox_path: Optional[str] = None
+    StereoFusion: StereoFusionInternalOptions = StereoFusionInternalOptions()
+
+    def __post_init__(self):
+        self.post_init_enum_validation({
+            "workspace_format": DenseReconstrutionType,
+            "input_type" : StereoFusionInputType,
+            "output_type" : StereoFusionOutputType
         })
